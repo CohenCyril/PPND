@@ -1,0 +1,41 @@
+# This file was generated from `meta.yml`, please do not edit manually.
+# Follow the instructions on https://github.com/coq-community/templates to regenerate.
+
+opam-version: "2.0"
+maintainer: "Cyril Cohen <cyril.cohen@inria.fr>"
+version: "dev"
+
+homepage: "https://github.com/CohenCyril/PPND"
+dev-repo: "git+https://github.com/CohenCyril/PPND.git"
+bug-reports: "https://github.com/CohenCyril/PPND/issues"
+license: "LGPL-2.1-or-later"
+
+synopsis: "Lecture on formalizing natural deduction and STLC"
+description: """
+Lecture on formalizing natural deduction and STLC"""
+
+build: [make "-j%{jobs}%"]
+install: [make "install"]
+depends: [
+  "coq" {>= "8.20" & < "8.21"}
+  "coq-mathcomp-algebra" {= "2.2.0"}
+  "coq-mathcomp-algebra-tactics" {= "1.2.3"}
+  "coq-mathcomp-zify" {= "1.5.0+2.0+8.16"}
+  "coq-mathcomp-finmap" {= "2.1.0"}
+  "coq-deriving" {= "0.2.1" }
+  "coq-equations" {= "1.3.1+8.20" }
+]
+
+tags: [
+  "category:Computer Science"
+  "category:Miscellaneous/Coq Extensions"
+  "keyword:lecture"
+  "keyword:ssreflect"
+  "keyword:mathcomp"
+  "keyword:natural deduction"
+  "keyword:lambda calculus"
+  "logpath:ND"
+]
+authors: [
+  "Cyril Cohen"
+]
