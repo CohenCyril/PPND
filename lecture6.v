@@ -37,7 +37,7 @@ where "Γ ⊢ M : A" := (TyOf Γ M A).
 
 Fixpoint CH_rec Γ A M (Mty : Γ ⊢ M : A) : derivation [::] (Γ ⊢ A) :=
 match Mty with
-| TyVar Γ i A eqA => Ax _ _  eqA
+| TyVar Γ i A eqA => Ax _ _ eqA
 | TyLam Γ A B M Mty => ImplyI (CH_rec Mty)
 | TyApp Γ A B M N Mty Nty => ImplyE (CH_rec Nty) (CH_rec Mty)
 end.
