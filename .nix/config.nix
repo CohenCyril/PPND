@@ -5,9 +5,19 @@
   ## to another supported format.
 
   ## The attribute to build from the local sources,
-  ## either using nixpkgs data or the overlays located in `.nix/coq-overlays`
+  ## either using nixpkgs data or the overlays located in `.nix/rocq-overlays`
+  ## and `.nix/coq-overlays`
   ## Will determine the default main-job of the bundles defined below
   attribute = "PPND";
+
+  ## The attribute for coq compat shim, default to attribute
+  ## set this when you need both to differ
+  ## (for instance "rocq-elpi" and "coq-elpi")
+  # coq-attribute = "PPND";
+
+  ## Set this when the package has no rocqPackages version yet
+  ## (either in nixpkgs or in .nix/rocq-overlays)
+  no-rocq-yet = true;
 
   ## If you want to select a different attribute (to build from the local sources as well)
   ## when calling `nix-shell` and `nix-build` without the `--argstr job` argument
@@ -22,7 +32,8 @@
   ## These dependencies will systematically be added to the currently
   ## known dependencies, if any more than Coq.
   ## /!\ Remove this field as soon as the package is available on nixpkgs.
-  ## /!\ Manual overlays in `.nix/coq-overlays` should be preferred then.
+  ## /!\ Manual overlays in `.nix/rocq-overlays` or `.nix/coq-overlays`
+  ##     should be preferred then.
   # buildInputs = [ ];
 
   ## Indicate the relative location of your _CoqProject
@@ -38,6 +49,10 @@
   ## When generating GitHub Action CI, one workflow file
   ## will be created per bundle
   bundles.default = {
+    ## You can override Rocq and other Rocq rocqPackages
+    ## through the following attribute
+    rocqPackages.rocq-core.override.version = "9.1";
+    coqPackages.coq.override.version = "9.1";
 
     ## You can override Coq and other Coq coqPackages
     ## through the following attribute
@@ -45,9 +60,11 @@
 
     ## In some cases, light overrides are not available/enough
     ## in which case you can use either
+    # rocqPackages.<rocq-pkg>.overrideAttrs = o: <overrides>;
     # coqPackages.<coq-pkg>.overrideAttrs = o: <overrides>;
-    ## or a "long" overlay to put in `.nix/coq-overlays
-    ## you may use `nix-shell --run fetchOverlay <coq-pkg>`
+    ## or a "long" overlay to put in `.nix/rocq-overlays` or `.nix/coq-overlays`
+    ## you may use `nix-shell --run fetchRocqOverlay <rocq-pkg>`
+    ## or `nix-shell --run fetchCoqOverlay <coq-pkg>`
     ## to automatically retrieve the one from nixpkgs
     ## if it exists and is correctly named/located
 
@@ -69,6 +86,7 @@
     ## by default the current package and its shell attributes are main jobs
 
     ## you may mark a package as a CI job as follows
+    #  rocqPackages.<another-pkg>.job = "test";
     #  coqPackages.<another-pkg>.job = "test";
     ## It can then built through
     ## nix-build --argstr bundle "default" --arg job "test";

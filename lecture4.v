@@ -1,7 +1,6 @@
 From HB Require Import structures.
-From mathcomp Require Import all_ssreflect.
+From mathcomp Require Import all_boot all_order.
 From deriving Require Import deriving.
-
 From ND Require Import extra.
 
 
@@ -91,20 +90,32 @@ Definition derivations (ls : list sequent) :=
 Definition admissible (r : rule) := derivations (premises r) ->
     derivation [::] (conclusion r).
 
+Arguments Ax {premises Γ A}.
+
+Definition AxN {premises Γ A} (i : nat) : onth Γ i = Some A ->
+  derivation premises (Γ ⊢ A).
+Proof.
+move=> nthA; have iΓ : i < size Γ by rewrite -onthTE nthA.
+exact/(Ax (Ordinal iΓ))/tnth_onth.
+Defined.
+
 Lemma derivable_admissible r : derivable r -> admissible r.
 Proof.
 unfold derivable, admissible; elim => //=.
-- move=> s; elim: (premises r) => //= s0 pr IHpr.
-  rewrite in_cons.
-  case: eqVneq => [->|].
-    by move=> _; by case.
-  move=> /= _.
-  move=> spr.
-  case=> _.
-  by apply: IHpr.
-- by move=> Γ A i eqA _; apply: (Ax _ _ _ i).
-Admitted.
-
+- move=> s; elim: (premises r) => //= s0 pr IHpr; rewrite in_cons.
+  by case: eqVneq => [->|]; tauto.
+- by move=> Γ A i eqA _; apply: (Ax i).
+- by firstorder using BotE.
+- by firstorder using ImplyI.
+- by firstorder using ImplyE.
+- by firstorder using AndI.
+- by move=> Γ A B; have := @AndE1 [::] Γ A B; tauto.
+- by move=> Γ A B; have := @AndE2 [::] Γ A B; tauto.
+- by firstorder using OrI1.
+- by firstorder using OrI2.
+- by move=> Γ A B C; have := @OrE [::] Γ A B C; tauto.
+Qed.
+  
 Definition reversible (r : rule) := 
   derivation [::] (conclusion r) -> derivations (premises r).
 
@@ -118,23 +129,76 @@ apply: Prem.
 by rewrite mem_head.
 Qed.
 
-Lemma weakening Γ A B : derivation [::] (Γ ⊢ B) -> derivation [::] (A :: Γ ⊢ B).
-Proof.
-set s := (Γ ⊢ B).
-rewrite -[Γ]/(hypotheses s) -[B]/(thesis s).
-elim => //=.
-- move=> {s}Γ {}B i eqB.
-  apply: (Ax _ _ _ [ord i.+1]).
-    by rewrite /= ltnS//.
-  move=> Hi.
-  rewrite /tnth/=.
-  rewrite in_tuple_cons/=.
-  by rewrite -(tnth_nth _ (in_tuple Γ)).
-- move=> {s}Γ {}B _ Hbot.
-  by apply: BotE.
--
-Admitted.
+(* Lemma exchange Γ A B C : *)
+(*   derivation [::] (B :: A :: Γ ⊢ C) -> derivation [::] (A :: B :: Γ ⊢ C). *)
+(* Proof. *)
+(* set s := (_ ⊢ _). *)
+(* have -> : B = nth (Var 0) (hypotheses s) 0 by []. *)
+(* have -> : A = nth (Var 0) (hypotheses s) 1 by []. *)
+(* have -> : Γ = behead (behead (hypotheses s)) by []. *)
+(* have -> : C = thesis s by []. *)
+(* have/[swap]: size (hypotheses s) > 1 by []. *)
+(* elim => //= {Γ A B C s} - [|A [|B Γ]] //=. *)
+(* - move=> D [[<-]|[[<-]|i nthD]]//= _. *)
+(*   + exact: (Ax _ _ _ 1). *)
+(*   + exact: (Ax _ _ _ 0). *)
+(*   + exact: (Ax _ _ _ i.+2). *)
+(* - by firstorder using BotE. *)
+(* - move=> C D. /by firstorder using ImplyI. *)
+  
+(* move=> d. *)
+(* elim. *)
 
+Lemma sig_eq2W (T : choiceType) (vT vT' : eqType)
+  (lhs rhs : T -> vT) (lhs' rhs' : T -> vT') :
+    (exists2 x : T, lhs x = rhs x & lhs' x = rhs' x) ->
+    {x : T | lhs x = rhs x & lhs' x = rhs' x}.
+Proof.
+move=> e; suff [x /eqP]: {x : T | lhs x == rhs x & lhs' x = rhs' x} by exists x.
+by apply: sig2_eqW; case: e => x /eqP; exists x.
+Qed.
+
+Definition index_mask (m : seq bool) i :=
+  nth (size m) (mask m (iota 0 (size m))) i.
+
+Lemma map_nth {T1 T2 : Type} (f : T1 -> T2) x (n : nat) (s : seq T1) :
+  f (nth x s n) = nth (f x) [seq f i | i <- s] n.
+Proof. by elim: n s => [|n IHn] [|y s] /=. Qed.
+                                            
+Lemma nth_cons [T : Type] (x0 x : T) (s2 : seq T) (n : nat) :
+  nth x0 (x :: s2) n = (if n == 0 then x else nth x0 s2 (n.-1)).
+Proof. by rewrite -cat1s nth_cat/=; case: n => //= n; rewrite subn1. Qed.
+
+Lemma nth_index_mask {T} (m : seq bool) x0 (s : seq T) : size m >= size s ->
+  forall i, nth x0 (mask m s) i = nth x0 s (index_mask m i).
+Proof.
+rewrite /index_mask => sm i.
+by elim: m s sm i => [|[] m IHm]//= [|x s]//= sm [|i];
+   rewrite ?nth_nil ?(iotaDl 1)//= -map_mask -map_nth/= IHm.
+Qed.
+
+  
+Lemma weakening Γ Γ' B : subseq Γ Γ' ->
+  derivation [::] (Γ ⊢ B) -> derivation [::] (Γ' ⊢ B).
+Proof.
+set s := (Γ ⊢ B); rewrite -[B]/(thesis s) -[Γ]/(hypotheses s).
+move: s => s sΓ' ds; elim: ds Γ' sΓ' => //= {B s}Γ.
+- move=> A i <- Γ' /subseqP/sig_eq2W/=[m sm Γeq].
+  apply: (AxN (index_mask m i)).
+  rewrite onthE -nth_index_mask ?size_map -?sm//.
+  by rewrite -map_mask -Γeq -onthE; apply/(tnth_onth _ (in_tuple Γ)).
+- by move=> A d d' Γ' ΓΓ'; apply/BotE/d'.
+- by move=> A B d d' Γ' ΓΓ'; apply/ImplyI/d'; rewrite /= eqxx.
+- by move=> A B d1 d1' d2 d2' Γ' ΓΓ'; apply/ImplyE/d2'/ΓΓ'/d1'.
+- by move=> A B d1 d1' d2 d2' Γ' ΓΓ'; apply/AndI/d2'/ΓΓ'/d1'.
+- by move=> A B d d' Γ' ΓΓ'; apply/AndE1/d'.
+- by move=> A B d d' Γ' ΓΓ'; apply/AndE2/d'.
+- by move=> A B d d' Γ' ΓΓ'; apply/OrI1/d'.
+- by move=> A B d d' Γ' ΓΓ'; apply/OrI2/d'.
+- move=> A B C d1 d1' d2 d2' d3 d3' Γ' ΓΓ'.
+  by apply: (OrE _ _ _ _ _ (d1' _ _) (d2' _ _) (d3' _ _)) => //=; rewrite eqxx.
+Qed.
+  
 Lemma ImplyI_reversible Γ A B : reversible (ImplyI_rule Γ A B).
 Proof.
 rewrite /reversible/=.

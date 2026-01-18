@@ -490,8 +490,10 @@ elim: F A F0 FA => [n|F IHF G IHG] A; rewrite /= ?orbF //=.
   by rewrite addnC -leq_psubRL// subnn ltn_geF.
 Qed.
 
+Fact formula_display : preorder.Order.disp_t. Proof. by []. Qed.
 HB.instance Definition _ :=
-  Order.Le_isPOrder.Build tt formula subformula_refl  subformula_anti subformula_trans.
+  Order.Le_isPOrder.Build formula_display formula
+    subformula_refl  subformula_anti subformula_trans.
 Bind Scope order_scope with formula.
 
 
