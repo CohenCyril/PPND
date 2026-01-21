@@ -204,7 +204,7 @@ Ltac ImplyAx k :=
 Lemma derivationW (hyp1 hyp2 : list sequent) s : all [in hyp2] hyp1 ->
   derivation hyp1 s -> derivation hyp2 s.
 Proof.
-move=> /all_memP hypS; elim=> [^~0]; do ?by constructor.
+move=> /allP hypS; elim=> [^~0]; do ?by constructor.
 - by apply: Hyp; apply: hypS.
 - exact: (Ax i0).
 - by ImplyE A0.
@@ -263,13 +263,13 @@ Lemma derivable_actual_premises r (d : derivable r) :
   derivable (Rule (actual_premises d) (conclusion r)).
 Proof.
 move: d; rewrite /derivable/= => d; apply/derivationW.
-  by apply/all_memP => x; rewrite actual_premisesE; exact: id.
+  by apply/allP => x; rewrite actual_premisesE; exact: id.
 elim: d => //=; do ?by constructor.
 - by move=> s ?; apply: Hyp; rewrite mem_head.
 - by move=> ? ? ?; apply: Ax.
 - by move=> ? ? ? ? dl ? dr;
   apply: ImplyE; [apply: derivationW dl|apply: derivationW dr];
-  apply/all_memP => ?; rewrite mem_cat => ->; rewrite ?orbT.
+  apply/allP => ?; rewrite mem_cat => ->; rewrite ?orbT.
 Qed.
 
 Lemma cut_hypotheses hyps2 hyps1 hyps s1 s2 :
@@ -279,7 +279,7 @@ Lemma cut_hypotheses hyps2 hyps1 hyps s1 s2 :
   derivation hyps1 s1 ->
   derivation hyps s2.
 Proof.
-move=> h1 /all_memP h2 /[swap] ders1.
+move=> h1 /allP h2 /[swap] ders1.
 elim=> [^~0]; do ?by constructor.
 - move: i0; rewrite in_cons.
   case: eqP => [->_|/= _ /h2]; last exact: Hyp.
@@ -310,9 +310,9 @@ Lemma gen_cut  hyps1 hyps2 hyps Γ A B :
   derivation hyps2 (A :: Γ ⊢ B) ->
   derivation hyps (Γ ⊢ B).
 Proof.
-move=> /all_memP h1 h2 a; apply/cut_hypotheses => //.
+move=> /allP h1 h2 a; apply/cut_hypotheses => //.
 ImplyE A.
-  apply/(@derivationW hyps1) => //; apply/all_memP => p /h1.
+  apply/(@derivationW hyps1) => //; apply/allP => p /h1.
   by rewrite in_cons => ->; rewrite orbT.
 by Rev; apply: Hyp; rewrite mem_head.
 Qed.

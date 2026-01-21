@@ -25,10 +25,6 @@ Notation "[-->]" := (ltac:(let x := fresh "x" in (
   intro x; match goal with x : ?l = ?r |- _ => subst l end)))
   (only parsing): ssripat_scope.
 
-Lemma all_memP (T : eqType) (r s : seq T) :
-  reflect {subset s <= r} (all [in r] s).
-Proof. by apply: (iffP allP) => rs + /rs. Defined.
-
 Lemma tnth_in_tuple_map T T' (f : T -> T') l
     (i j : 'I__) : i = j :> nat ->
   tnth (in_tuple (map f l)) i = f (tnth (in_tuple l) j).
@@ -139,3 +135,37 @@ HB.mixin Record hasFresh X of Equality X := {
 }.
 #[short(type="infiniteType")]
 HB.structure Definition Infinite := {X of Choice X & hasFresh X}.
+
+Lemma sig_eq2W (T : choiceType) (vT vT' : eqType)
+  (lhs rhs : T -> vT) (lhs' rhs' : T -> vT') :
+    (exists2 x : T, lhs x = rhs x & lhs' x = rhs' x) ->
+    {x : T | lhs x = rhs x & lhs' x = rhs' x}.
+Proof.
+move=> e; suff [x /eqP]: {x : T | lhs x == rhs x & lhs' x = rhs' x} by exists x.
+by apply: sig2_eqW; case: e => x /eqP; exists x.
+Qed.
+
+Definition index_mask (m : seq bool) i :=
+  nth (size m) (mask m (iota 0 (size m))) i.
+
+Lemma map_nth {T1 T2 : Type} (f : T1 -> T2) x (n : nat) (s : seq T1) :
+  f (nth x s n) = nth (f x) [seq f i | i <- s] n.
+Proof. by elim: n s => [|n IHn] [|y s] /=. Qed.
+                                            
+Lemma nth_cons [T : Type] (x0 x : T) (s2 : seq T) (n : nat) :
+  nth x0 (x :: s2) n = (if n == 0 then x else nth x0 s2 (n.-1)).
+Proof. by rewrite -cat1s nth_cat/=; case: n => //= n; rewrite subn1. Qed.
+
+Lemma nth_index_mask {T} (m : seq bool) x0 (s : seq T) : size m >= size s ->
+  forall i, nth x0 (mask m s) i = nth x0 s (index_mask m i).
+Proof.
+rewrite /index_mask => sm i.
+by elim: m s sm i => [|[] m IHm]//= [|x s]//= sm [|i];
+   rewrite ?nth_nil ?(iotaDl 1)//= -map_mask -map_nth/= IHm.
+Qed.
+
+Lemma tnth_onthP [n : nat] [T : Type] (x : T) (t : n.-tuple T) (i : nat) ilt :
+  tnth t (@Ordinal _ i ilt) = x <-> onth t i = Some x.
+Proof. move=> *; exact: tnth_onth. Qed.
+
+Lemma ordE n (i : 'I_n) (p : i < n) : Ordinal p = i. Proof. exact/val_inj. Qed.

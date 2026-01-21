@@ -1,5 +1,5 @@
 From HB Require Import structures.
-From mathcomp Require Import all_boot all_order.
+From mathcomp Require Import all_boot all_order fingroup perm zmodp.
 From deriving Require Import deriving.
 From ND Require Import extra.
 
@@ -99,6 +99,10 @@ move=> nthA; have iΓ : i < size Γ by rewrite -onthTE nthA.
 exact/(Ax (Ordinal iΓ))/tnth_onth.
 Defined.
 
+Definition AxP {premises Γ A} (i : nat) (ilt : i < size Γ):
+   tnth (in_tuple Γ) (Ordinal ilt) = A -> derivation premises (Γ ⊢ A).
+Proof. exact: Ax. Qed.
+
 Lemma derivable_admissible r : derivable r -> admissible r.
 Proof.
 unfold derivable, admissible; elim => //=.
@@ -129,60 +133,40 @@ apply: Prem.
 by rewrite mem_head.
 Qed.
 
-(* Lemma exchange Γ A B C : *)
-(*   derivation [::] (B :: A :: Γ ⊢ C) -> derivation [::] (A :: B :: Γ ⊢ C). *)
-(* Proof. *)
-(* set s := (_ ⊢ _). *)
-(* have -> : B = nth (Var 0) (hypotheses s) 0 by []. *)
-(* have -> : A = nth (Var 0) (hypotheses s) 1 by []. *)
-(* have -> : Γ = behead (behead (hypotheses s)) by []. *)
-(* have -> : C = thesis s by []. *)
-(* have/[swap]: size (hypotheses s) > 1 by []. *)
-(* elim => //= {Γ A B C s} - [|A [|B Γ]] //=. *)
-(* - move=> D [[<-]|[[<-]|i nthD]]//= _. *)
-(*   + exact: (Ax _ _ _ 1). *)
-(*   + exact: (Ax _ _ _ 0). *)
-(*   + exact: (Ax _ _ _ i.+2). *)
-(* - by firstorder using BotE. *)
-(* - move=> C D. /by firstorder using ImplyI. *)
+Lemma exchange Γ Γ' A : perm_eq Γ Γ' ->
+  derivation [::] (Γ ⊢ A) -> derivation [::] (Γ' ⊢ A).
+Proof.
+set s := (Γ ⊢ A); rewrite -[A]/(thesis s) -[Γ]/(hypotheses s) => /[swap] d.
+elim: d Γ' => //= => {A s}Γ.
+- move=> A i <- Γ' /[1!perm_sym] /(@tactP _ _ _ (in_tuple _))/sig_eqW[/= σ ->].
+  apply/(AxN (σ^-1%g i))/tnth_onthP; rewrite tnth_tact/=; congr (tnth _).
+  by apply/val_inj; rewrite ordE/= permKV.
+- by move=> A d + {}Γ' ΓΓ' => /(_ Γ' ΓΓ'); apply/BotE.
+- by move=> A N d d' Γ' ΓΓ; apply/ImplyI/d'; rewrite perm_cons.
+- by move=>  A B d1 d1' d2 d2' Γ' ΓΓ'; apply/ImplyE/d2'/ΓΓ'/d1'.
+- by move=>  A B d1 d1' d2 d2' Γ' ΓΓ'; apply/AndI/d2'/ΓΓ'/d1'.
+- by move=> A N d d' Γ' ΓΓ; apply/AndE1/d'.
+- by move=> A N d d' Γ' ΓΓ; apply/AndE2/d'.
+- by move=> A N d d' Γ' ΓΓ; apply/OrI1/d'.
+- by move=> A N d d' Γ' ΓΓ; apply/OrI2/d'.
+- move=> A B C d1 d1' d2 d2' d3 d3' Γ' ΓΓ'; apply/(OrE _ _ A B).
+  - exact: d1'.
+  - by apply: d2'; rewrite perm_cons.
+  - by apply: d3'; rewrite perm_cons.
+Qed. 
   
-(* move=> d. *)
-(* elim. *)
-
-Lemma sig_eq2W (T : choiceType) (vT vT' : eqType)
-  (lhs rhs : T -> vT) (lhs' rhs' : T -> vT') :
-    (exists2 x : T, lhs x = rhs x & lhs' x = rhs' x) ->
-    {x : T | lhs x = rhs x & lhs' x = rhs' x}.
+Lemma exchange2 Γ Δ A B C :
+  derivation [::] (Γ ++ A :: B :: Δ ⊢ C) -> derivation [::] (Γ ++ B :: A :: Δ ⊢ C).
 Proof.
-move=> e; suff [x /eqP]: {x : T | lhs x == rhs x & lhs' x = rhs' x} by exists x.
-by apply: sig2_eqW; case: e => x /eqP; exists x.
+apply/exchange/perm_cat => //.
+by rewrite -![_ :: (_ :: _)]cat1s -![_ :: Δ]cat1s perm_catCA.
 Qed.
-
-Definition index_mask (m : seq bool) i :=
-  nth (size m) (mask m (iota 0 (size m))) i.
-
-Lemma map_nth {T1 T2 : Type} (f : T1 -> T2) x (n : nat) (s : seq T1) :
-  f (nth x s n) = nth (f x) [seq f i | i <- s] n.
-Proof. by elim: n s => [|n IHn] [|y s] /=. Qed.
-                                            
-Lemma nth_cons [T : Type] (x0 x : T) (s2 : seq T) (n : nat) :
-  nth x0 (x :: s2) n = (if n == 0 then x else nth x0 s2 (n.-1)).
-Proof. by rewrite -cat1s nth_cat/=; case: n => //= n; rewrite subn1. Qed.
-
-Lemma nth_index_mask {T} (m : seq bool) x0 (s : seq T) : size m >= size s ->
-  forall i, nth x0 (mask m s) i = nth x0 s (index_mask m i).
-Proof.
-rewrite /index_mask => sm i.
-by elim: m s sm i => [|[] m IHm]//= [|x s]//= sm [|i];
-   rewrite ?nth_nil ?(iotaDl 1)//= -map_mask -map_nth/= IHm.
-Qed.
-
   
-Lemma weakening Γ Γ' B : subseq Γ Γ' ->
-  derivation [::] (Γ ⊢ B) -> derivation [::] (Γ' ⊢ B).
+Lemma weakening Γ Γ' A : subseq Γ Γ' ->
+  derivation [::] (Γ ⊢ A) -> derivation [::] (Γ' ⊢ A).
 Proof.
-set s := (Γ ⊢ B); rewrite -[B]/(thesis s) -[Γ]/(hypotheses s).
-move: s => s sΓ' ds; elim: ds Γ' sΓ' => //= {B s}Γ.
+set s := (Γ ⊢ A); rewrite -[A]/(thesis s) -[Γ]/(hypotheses s).
+move: s => s sΓ' ds; elim: ds Γ' sΓ' => //= {A s}Γ.
 - move=> A i <- Γ' /subseqP/sig_eq2W/=[m sm Γeq].
   apply: (AxN (index_mask m i)).
   rewrite onthE -nth_index_mask ?size_map -?sm//.
@@ -198,6 +182,9 @@ move: s => s sΓ' ds; elim: ds Γ' sΓ' => //= {B s}Γ.
 - move=> A B C d1 d1' d2 d2' d3 d3' Γ' ΓΓ'.
   by apply: (OrE _ _ _ _ _ (d1' _ _) (d2' _ _) (d3' _ _)) => //=; rewrite eqxx.
 Qed.
+
+Lemma weakening1 Γ A B : derivation [::] (Γ ⊢ B) -> derivation [::] (A :: Γ ⊢ B).
+Proof. by apply: weakening; rewrite subseq_cons. Qed.
   
 Lemma ImplyI_reversible Γ A B : reversible (ImplyI_rule Γ A B).
 Proof.
@@ -205,8 +192,8 @@ rewrite /reversible/=.
 move=> dAB.
 split => //.
 apply: (ImplyE _ _ A); last first.
-  by apply: (Ax _ _ _ [ord 0]) => /=.
-by apply: weakening.
+  exact: (Ax [ord 0]).
+exact: weakening1.
 Qed.
 
 Fixpoint subst_formula (ρ : list formula) (A : formula) :=
@@ -227,16 +214,22 @@ Lemma subst_derivation ρ prem s : derivation prem s ->
    derivation (map (subst_sequent ρ) prem) (subst_sequent ρ s).
 Proof.
 elim.
-- admit.
+- by move=> /= {}s sprem; apply: Prem; rewrite map_f.
 - move=> Γ A i eqA /=.
-  apply: (Ax _ _ _ [ord i]). 
+  apply: (Ax [ord i]). 
     by rewrite size_map/=.
   move=> Hi/=.
-
   rewrite /tnth/=.
   rewrite (nth_map A)//.
   rewrite -(tnth_nth _ (in_tuple Γ)).
   by rewrite eqA.
 - by move=> Γ A _; apply: BotE.
-Admitted.
-
+- by move=> Γ A B d d' /=; apply: ImplyI.
+- by move=> Γ A B d1 d1' d2 d2'; apply: ImplyE d2'.
+- by move=> Γ A B d1 d1' d2 d2'; apply: AndI d2'.
+- by move=> Γ A B d d' /=; apply: AndE1 d'.
+- by move=> Γ A B d d' /=; apply: AndE2 d'.
+- by move=> Γ A B d d' /=; apply: OrI1 d'.
+- by move=> Γ A B d d' /=; apply: OrI2 d'.
+- by move=> Γ A B C d1 d1' d2 d2' d3 d3'; apply: OrE d2' d3'.
+Qed.  
