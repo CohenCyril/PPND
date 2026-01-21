@@ -17,13 +17,13 @@ Lecture on formalizing natural deduction and STLC"""
 build: [make "-j%{jobs}%"]
 install: [make "install"]
 depends: [
-  "coq" {>= "8.20" & < "8.21"}
-  "coq-mathcomp-algebra" {= "2.2.0"}
-  "coq-mathcomp-algebra-tactics" {= "1.2.3"}
-  "coq-mathcomp-zify" {= "1.5.0+2.0+8.16"}
-  "coq-mathcomp-finmap" {= "2.1.0"}
-  "coq-deriving" {= "0.2.1" }
-  "coq-equations" {= "1.3.1+8.20" }
+  "coq" {>= "9.1" & < "9.2"}
+  "coq-mathcomp-algebra" {= "2.5.0"}
+  "coq-mathcomp-algebra-tactics" {= "1.2.7"}
+  "coq-mathcomp-zify" {= "1.6.0+2.3+8.18"}
+  "coq-mathcomp-finmap" {= "2.2.2"}
+  "coq-deriving" {= "0.2.2" }
+  "coq-equations" {= "1.3.1+9.1" }
 ]
 
 tags: [

@@ -16,15 +16,15 @@ Lecture on formalizing natural deduction and STLC
 - Author(s):
   - Cyril Cohen (initial)
 - License: [GNU Lesser General Public License v2.1](LICENSE)
-- Compatible Coq versions: 8.20
+- Compatible Rocq/Coq versions: 9.1
 - Additional dependencies:
-  - Mathematical components version 2.2.0
-  - Mathematical components algebra tactics 1.2.3
-  - Mathematical components zify plugin 1.5.0+2.0+8.16
-  - Mathematical components finmap 2.1.0
-  - Coq Deriving Package 0.2.1
-  - Coq Equations Package 1.3.1+8.20
-- Coq namespace: `ND`
+  - Mathematical components version 2.2.5
+  - Mathematical components algebra tactics 1.2.7
+  - Mathematical components zify plugin 1.6.0+2.3+8.18
+  - Mathematical components finmap 2.2.2
+  - Coq Deriving Package 0.2.2
+  - Coq Equations Package 1.3.1+9.1
+- Rocq/Coq namespace: `ND`
 - Related publication(s): none
 
 ## Building and installation instructions
