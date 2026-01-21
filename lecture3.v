@@ -1,35 +1,46 @@
 From HB Require Import structures.
-From mathcomp Require Import all_boot all_order fingroup perm zmodp.
+From mathcomp Require Import all_boot all_order fingroup perm zmodp zify.
 From deriving Require Import deriving.
 From ND Require Import extra.
-
 
 Declare Scope NJ_scope.
 Delimit Scope NJ_scope with NJ.
 Local Open Scope NJ_scope.
 
-Module bin.
-Inductive op := And | Or | Imply.
-End bin.
+(* Formula *)
 
-Definition op_indDef := [indDef for bin.op_rect].
-Canonical op_indType := IndType bin.op op_indDef.
-Definition op_hasEqDec := [derive hasDecEq for bin.op].
-HB.instance Definition _ := op_hasEqDec.
+Module Op.
+Inductive bin : Type := Or | And | Imply.
+End Op.
 
-Inductive formula : Type :=
-| Var : nat -> formula
-| Bot : formula
-| BinOp : bin.op -> formula -> formula -> formula.
+Definition binOp_indDef := [indDef for Op.bin_rect].
+Canonical binOp_indType := IndType Op.bin binOp_indDef.
+
+Definition binOp_hasDecEq := [derive hasDecEq for Op.bin].
+HB.instance Definition _ := binOp_hasDecEq.
+Definition binOp_choice := [derive hasChoice for Op.bin].
+HB.instance Definition _ := binOp_choice.
+Definition binOp_countable := [derive isCountable for Op.bin].
+HB.instance Definition _ := binOp_countable.
+
+Inductive formula :=
+  | Var of nat
+  | Bot 
+  | BinOp of Op.bin & formula & formula.
 
 Definition formula_indDef := [indDef for formula_rect].
 Canonical formula_indType := IndType formula formula_indDef.
-Definition formula_hasEqDec := [derive hasDecEq for formula].
-HB.instance Definition _ := formula_hasEqDec.
 
-Notation Imply := (BinOp bin.Imply).
-Notation Or := (BinOp bin.Or).
-Notation And := (BinOp bin.And).
+Definition formula_hasDecEq := [derive hasDecEq for formula].
+HB.instance Definition _ := formula_hasDecEq.
+Definition formula_choice := [derive hasChoice for formula].
+HB.instance Definition _ := formula_choice.
+Definition formula_countable := [derive isCountable for formula].
+HB.instance Definition _ := formula_countable.
+
+Notation Or := (BinOp Op.Or).
+Notation And := (BinOp Op.And).
+Notation Imply := (BinOp Op.Imply).
 
 Notation "A ⇒ B" := (Imply A B) (right associativity, at level 99) : NJ_scope.
 Notation "A ∧ B" := (And A B) (right associativity, at level 80) : NJ_scope.
@@ -41,32 +52,44 @@ Notation "⊤" := Top : NJ_scope.
 Notation Neg := (fun x => Imply x Bot).
 Notation "'P_ n" := (Var n) : NJ_scope.
 
+Fixpoint size_formula (A : formula) : nat :=
+  match A with
+    | Var _ => 1
+    | Bot => 1
+    | BinOp op A B => size_formula A + size_formula B
+  end. 
+
+Lemma size_formula_gt0 (A : formula) : size_formula A > 0.
+Proof. by elim: A => [n //| // |op A A_gt0 B B_gt0] /=; lia. Qed.
+Hint Resolve size_formula_gt0 : core.
+
+(* sequent *)
 Record sequent := Sequent {
   hypotheses : list formula;
-  thesis : formula;
+  thesis : formula; 
 }.
+Bind Scope NJ_scope with sequent.
+
 Scheme sequent_rect := Induction for sequent Sort Type.
 Definition sequent_indDef := [indDef for sequent_rect].
 Canonical sequent_indType := IndType sequent sequent_indDef.
-Definition sequent_hasEqDec := [derive hasDecEq for sequent].
-HB.instance Definition _ := sequent_hasEqDec.
 
-Record rule := Rule {
-  premises : list sequent;
-  conclusion : sequent  
-}.
-Scheme rule_rect := Induction for rule Sort Type.
-Definition rule_indDef := [indDef for rule_rect].
-Canonical rule_indType := IndType rule rule_indDef.
-Definition rule_hasEqDec := [derive hasDecEq for rule].
-HB.instance Definition _ := rule_hasEqDec.
+Definition sequent_hasDecEq := [derive hasDecEq for sequent].
+HB.instance Definition _ := sequent_hasDecEq.
+Definition sequent_choice := [derive hasChoice for sequent].
+HB.instance Definition _ := sequent_choice.
+Definition sequent_countable := [derive isCountable for sequent].
+HB.instance Definition _ := sequent_countable.
 
+Coercion singlef (f : formula) := [:: f].
 Notation "Γ ⊢ A" := (Sequent Γ A) (at level 100) : NJ_scope.
 
 Set Uniform Inductive Parameters.
 
-Inductive derivation (premises : list sequent) : sequent -> Type :=
-| Prem s : s ∈ premises -> derivation s
+(* derivation *)
+
+Inductive derivation (prem : list sequent) : sequent -> Type :=
+| Prem s : s \in prem -> derivation s 
 | Ax (Γ : list formula) (A : formula) (i : 'I_(size Γ)) :
    tnth (in_tuple Γ) i = A -> derivation (Γ ⊢ A)
 | BotE Γ A : derivation (Γ ⊢ ⊥) -> derivation (Γ ⊢ A)
@@ -82,154 +105,99 @@ Inductive derivation (premises : list sequent) : sequent -> Type :=
 | OrE Γ A B C: derivation (Γ ⊢ A ∨ B) -> derivation (A :: Γ ⊢ C) ->
             derivation (B :: Γ ⊢ C) -> derivation (Γ ⊢ C).
 
-Definition derivable (r : rule) := derivation (premises r) (conclusion r).
+Arguments Ax {_ _ _}.
 
-Definition derivations (ls : list sequent) :=
-   foldr (fun s d => (derivation [::] s * d)%type) unit ls.
+Definition AxP prem (Γ : list formula) (A : formula) (i : nat)
+    (ilt : i < size Γ) :
+  tnth (in_tuple Γ) (Ordinal ilt) = A -> derivation prem (Γ ⊢ A).
+Proof. exact: Ax. Defined.
 
-Definition admissible (r : rule) := derivations (premises r) ->
-    derivation [::] (conclusion r).
+Arguments AxP {_ _ _}.
 
-Arguments Ax {premises Γ A}.
-
-Definition AxN {premises Γ A} (i : nat) : onth Γ i = Some A ->
-  derivation premises (Γ ⊢ A).
+Lemma ex1 : derivation [::] ([:: Var 0; Var 1] ⊢ Var 0).
 Proof.
-move=> nthA; have iΓ : i < size Γ by rewrite -onthTE nthA.
-exact/(Ax (Ordinal iΓ))/tnth_onth.
-Defined.
-
-Definition AxP {premises Γ A} (i : nat) (ilt : i < size Γ):
-   tnth (in_tuple Γ) (Ordinal ilt) = A -> derivation premises (Γ ⊢ A).
-Proof. exact: Ax. Qed.
-
-Lemma derivable_admissible r : derivable r -> admissible r.
-Proof.
-unfold derivable, admissible; elim => //=.
-- move=> s; elim: (premises r) => //= s0 pr IHpr; rewrite in_cons.
-  by case: eqVneq => [->|]; tauto.
-- by move=> Γ A i eqA _; apply: (Ax i).
-- by firstorder using BotE.
-- by firstorder using ImplyI.
-- by firstorder using ImplyE.
-- by firstorder using AndI.
-- by move=> Γ A B; have := @AndE1 [::] Γ A B; tauto.
-- by move=> Γ A B; have := @AndE2 [::] Γ A B; tauto.
-- by firstorder using OrI1.
-- by firstorder using OrI2.
-- by move=> Γ A B C; have := @OrE [::] Γ A B C; tauto.
-Qed.
-  
-Definition reversible (r : rule) := 
-  derivation [::] (conclusion r) -> derivations (premises r).
-
-Definition ImplyI_rule Γ A B : rule := Rule [:: A :: Γ ⊢ B] (Γ ⊢ A ⇒ B).
-
-Lemma ImplyI_derivable Γ A B : derivable (ImplyI_rule Γ A B).
-Proof.
-rewrite /derivable/=.
-apply: ImplyI.
-apply: Prem.
-by rewrite mem_head.
+by apply: (Ax [ord 0]).
 Qed.
 
-Lemma exchange Γ Γ' A : perm_eq Γ Γ' ->
-  derivation [::] (Γ ⊢ A) -> derivation [::] (Γ' ⊢ A).
-Proof.
-set s := (Γ ⊢ A); rewrite -[A]/(thesis s) -[Γ]/(hypotheses s) => /[swap] d.
-elim: d Γ' => //= => {A s}Γ.
-- move=> A i <- Γ' /[1!perm_sym] /(@tactP _ _ _ (in_tuple _))/sig_eqW[/= σ ->].
-  apply/(AxN (σ^-1%g i))/tnth_onthP; rewrite tnth_tact/=; congr (tnth _).
-  by apply/val_inj; rewrite ordE/= permKV.
-- by move=> A d + {}Γ' ΓΓ' => /(_ Γ' ΓΓ'); apply/BotE.
-- by move=> A N d d' Γ' ΓΓ; apply/ImplyI/d'; rewrite perm_cons.
-- by move=>  A B d1 d1' d2 d2' Γ' ΓΓ'; apply/ImplyE/d2'/ΓΓ'/d1'.
-- by move=>  A B d1 d1' d2 d2' Γ' ΓΓ'; apply/AndI/d2'/ΓΓ'/d1'.
-- by move=> A N d d' Γ' ΓΓ; apply/AndE1/d'.
-- by move=> A N d d' Γ' ΓΓ; apply/AndE2/d'.
-- by move=> A N d d' Γ' ΓΓ; apply/OrI1/d'.
-- by move=> A N d d' Γ' ΓΓ; apply/OrI2/d'.
-- move=> A B C d1 d1' d2 d2' d3 d3' Γ' ΓΓ'; apply/(OrE _ _ A B).
-  - exact: d1'.
-  - by apply: d2'; rewrite perm_cons.
-  - by apply: d3'; rewrite perm_cons.
-Qed. 
-  
-Lemma exchange2 Γ Δ A B C :
-  derivation [::] (Γ ++ A :: B :: Δ ⊢ C) -> derivation [::] (Γ ++ B :: A :: Δ ⊢ C).
-Proof.
-apply/exchange/perm_cat => //.
-by rewrite -![_ :: (_ :: _)]cat1s -![_ :: Δ]cat1s perm_catCA.
-Qed.
-  
-Lemma weakening Γ Γ' A : subseq Γ Γ' ->
-  derivation [::] (Γ ⊢ A) -> derivation [::] (Γ' ⊢ A).
-Proof.
-set s := (Γ ⊢ A); rewrite -[A]/(thesis s) -[Γ]/(hypotheses s).
-move: s => s sΓ' ds; elim: ds Γ' sΓ' => //= {A s}Γ.
-- move=> A i <- Γ' /subseqP/sig_eq2W/=[m sm Γeq].
-  apply: (AxN (index_mask m i)).
-  rewrite onthE -nth_index_mask ?size_map -?sm//.
-  by rewrite -map_mask -Γeq -onthE; apply/(tnth_onth _ (in_tuple Γ)).
-- by move=> A d d' Γ' ΓΓ'; apply/BotE/d'.
-- by move=> A B d d' Γ' ΓΓ'; apply/ImplyI/d'; rewrite /= eqxx.
-- by move=> A B d1 d1' d2 d2' Γ' ΓΓ'; apply/ImplyE/d2'/ΓΓ'/d1'.
-- by move=> A B d1 d1' d2 d2' Γ' ΓΓ'; apply/AndI/d2'/ΓΓ'/d1'.
-- by move=> A B d d' Γ' ΓΓ'; apply/AndE1/d'.
-- by move=> A B d d' Γ' ΓΓ'; apply/AndE2/d'.
-- by move=> A B d d' Γ' ΓΓ'; apply/OrI1/d'.
-- by move=> A B d d' Γ' ΓΓ'; apply/OrI2/d'.
-- move=> A B C d1 d1' d2 d2' d3 d3' Γ' ΓΓ'.
-  by apply: (OrE _ _ _ _ _ (d1' _ _) (d2' _ _) (d3' _ _)) => //=; rewrite eqxx.
-Qed.
+(* rules *)
+Record rule := Rule {
+  premises : list sequent;
+  conclusion : sequent;
+}.
+Scheme rule_rect := Induction for sequent Sort Type.
+Definition rule_indDef := [indDef for sequent_rect].
+Canonical rule_indType := IndType sequent sequent_indDef.
 
-Lemma weakening1 Γ A B : derivation [::] (Γ ⊢ B) -> derivation [::] (A :: Γ ⊢ B).
-Proof. by apply: weakening; rewrite subseq_cons. Qed.
-  
-Lemma ImplyI_reversible Γ A B : reversible (ImplyI_rule Γ A B).
+Definition rule_hasDecEq := [derive hasDecEq for sequent].
+HB.instance Definition _ := rule_hasDecEq.
+Definition rule_choice := [derive hasChoice for sequent].
+HB.instance Definition _ := rule_choice.
+Definition rule_countable := [derive isCountable for sequent].
+HB.instance Definition _ := rule_countable.
+
+Definition derivable (r : rule) :=
+  derivation (premises r) (conclusion r).
+Definition provable s := derivation [::] s.
+
+Definition admissible (r : rule) :=
+  (forall s, s \in premises r -> provable s) -> provable (conclusion r).
+
+Lemma derivable_admissible (r : rule) :
+  derivable r -> admissible r.
 Proof.
-rewrite /reversible/=.
-move=> dAB.
-split => //.
-apply: (ImplyE _ _ A); last first.
-  exact: (Ax [ord 0]).
-exact: weakening1.
-Qed.
+rewrite /derivable /admissible/=.
+move=> d.
+elim: d => //=.
+- by intros s sP Ps; have := Ps s sP.
+- by move=> ? ? i *; apply: (Ax i).
+- move=> Γ A d0 IHd0 Ps.
+  apply: (BotE _ Γ A).
+  by apply: IHd0.
+- move=> Γ A B d0 IHd0 Ps.
+  apply: (ImplyI _ Γ A B).
+  by apply: IHd0.
+- admit.
+- admit.
+- admit.
+- admit.
+- admit.
+- admit.
+- move=> Γ A B C d0 IHd0 d1 IHd1 d2 IHd2 Ps.
+  apply: (OrE _ Γ A B C).
+  - by apply: IHd0.
+  - by apply: IHd1.
+  - by apply: IHd2.
+Admitted.
 
-Fixpoint subst_formula (ρ : list formula) (A : formula) :=
-match A with
-| Var i => nth (Var (i - size ρ)) ρ i
-| Bot => Bot
-| BinOp op A B => BinOp op (subst_formula ρ A) (subst_formula ρ B)
-end.
+Definition reversible r :=
+  (admissible r *
+    (forall p, p ∈ premises r ->
+          admissible (Rule [:: conclusion r] (p))))%type.
 
-Definition subst_sequent ρ s :=
-  Sequent (map (subst_formula ρ) (hypotheses s)) (subst_formula ρ (thesis s)).
 
-Lemma subst_sequentE Γ A ρ :
-  subst_sequent ρ (Γ ⊢ A) = (map (subst_formula ρ) Γ ⊢ subst_formula ρ A).
-Proof. by []. Qed.
+Definition weakening Γ A B := Rule [:: Γ ⊢ B] (A :: Γ ⊢ B).
 
-Lemma subst_derivation ρ prem s : derivation prem s ->
-   derivation (map (subst_sequent ρ) prem) (subst_sequent ρ s).
+Definition gen_weakening Γ Θ A (ΓΘ : subseq Θ Γ) :=
+  Rule [:: Θ ⊢ A] (Γ ⊢ A).
+
+(* Definition exchange Γ A B Δ C := *)
+(*   Rule [:: Γ ++ A :: B :: Δ ⊢ C] (Γ ++ B :: A :: Δ ⊢ C). *)
+
+(* Lemma exchange_admissible Γ A B Δ C : *)
+(*   admissible (exchange Γ A B Δ C). *)
+(* Proof. Admitted. *)
+
+Lemma weakening_admissible Γ A B : admissible (weakening Γ A B).
 Proof.
-elim.
-- by move=> /= {}s sprem; apply: Prem; rewrite map_f.
-- move=> Γ A i eqA /=.
-  apply: (Ax [ord i]). 
-    by rewrite size_map/=.
-  move=> Hi/=.
-  rewrite /tnth/=.
-  rewrite (nth_map A)//.
-  rewrite -(tnth_nth _ (in_tuple Γ)).
-  by rewrite eqA.
-- by move=> Γ A _; apply: BotE.
-- by move=> Γ A B d d' /=; apply: ImplyI.
-- by move=> Γ A B d1 d1' d2 d2'; apply: ImplyE d2'.
-- by move=> Γ A B d1 d1' d2 d2'; apply: AndI d2'.
-- by move=> Γ A B d d' /=; apply: AndE1 d'.
-- by move=> Γ A B d d' /=; apply: AndE2 d'.
-- by move=> Γ A B d d' /=; apply: OrI1 d'.
-- by move=> Γ A B d d' /=; apply: OrI2 d'.
-- by move=> Γ A B C d1 d1' d2 d2' d3 d3'; apply: OrE d2' d3'.
-Qed.  
+move=> /= sP; have {sP} := sP _ (mem_head _ _).
+set s := (Γ ⊢ B).
+change Γ with (hypotheses s).
+change B with (thesis s).
+elim=> //=.
+- move=> {s B}Γ B i <-.
+  apply: (AxP i.+1); first by rewrite /= ltnS.
+  move=> ilt //=.
+  apply/tnth_onth => //=.
+  by apply/(tnth_onthP _ (in_tuple Γ)); rewrite ordE.
+- by move=> {s B}Γ B _; apply: BotE.
+Admitted.
