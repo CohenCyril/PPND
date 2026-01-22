@@ -101,7 +101,9 @@ Notation "⊢ B" := (Sequent [::] B) (at level 100) : NJ_scope.
 Coercion formula_to_sequent := Sequent [::].
 Arguments formula_to_sequent /.
 
-(* derivation *)
+(**************)
+(* Derivation *)
+(**************)
 
 Inductive derivation (prem : list sequent) : sequent -> Type :=
 | Prem s : s \in prem -> derivation s 
@@ -138,20 +140,22 @@ Proof.
 by apply: (Ax [ord 0]).
 Qed.
 
-(* rules *)
+(*********)
+(* Rules *)
+(*********)
+
 Record rule := Rule {
   premises : list sequent;
   conclusion : sequent;
 }.
-Scheme rule_rect := Induction for sequent Sort Type.
-Definition rule_indDef := [indDef for sequent_rect].
-Canonical rule_indType := IndType sequent sequent_indDef.
-
-Definition rule_hasDecEq := [derive hasDecEq for sequent].
+Scheme rule_rect := Induction for rule Sort Type.
+Definition rule_indDef := [indDef for rule_rect].
+Canonical rule_indType := IndType rule rule_indDef.
+Definition rule_hasDecEq := [derive hasDecEq for rule].
 HB.instance Definition _ := rule_hasDecEq.
-Definition rule_choice := [derive hasChoice for sequent].
+Definition rule_choice := [derive hasChoice for rule].
 HB.instance Definition _ := rule_choice.
-Definition rule_countable := [derive isCountable for sequent].
+Definition rule_countable := [derive isCountable for rule].
 HB.instance Definition _ := rule_countable.
 
 Coercion single_sequent (f : sequent) := [:: f].
@@ -160,8 +164,8 @@ Notation "p --------------------- c" := (Rule p c)
    at level 150) : NJ_scope.
 Coercion JustConcl (s : sequent) : rule := Rule [::] s.
 
+(* All NJ rules *)
 Module Rule.
-
 Definition Ax Γ i : rule := Γ ⊢ tnth (in_tuple Γ) i.
 Definition TopI Γ : rule := Γ ⊢ ⊤.
 Definition BotE Γ A := Rule (Γ ⊢ ⊥) (Γ ⊢ A).
@@ -175,18 +179,23 @@ Definition OrI2 Γ A B := Rule (Γ ⊢ B) (Γ ⊢ A ∨ B).
 Definition OrE Γ A B C := Rule [:: Γ ⊢ A ∨ B ; A :: Γ ⊢ C; B :: Γ ⊢ C] (Γ ⊢ C).
 Definition ImplyI Γ A B := Rule (A :: Γ ⊢ B) (Γ ⊢ A ⇒ B).
 Definition ImplyE Γ A B := Rule [:: Γ ⊢ A; Γ ⊢ A ⇒ B] (Γ ⊢ B).
-
 End Rule.
 
+(* Notation of derivability, provability, admissibility and reversibility *)
 Definition derivable (r : rule) := derivation (premises r) (conclusion r).
 Definition provable s := derivation [::] s.
+Definition admissible (r : rule) :=
+  (forall s, s \in premises r -> provable s) -> provable (conclusion r).
+Definition reversible r :=
+ forall p, p ∈ premises r -> admissible (Rule [:: conclusion r] (p)).
 
 (* casting from derivation ps c to derivable (Rule ps c) *)
 Coercion derivable_of_derivation ps c (d : derivation ps c) :
    derivable (Rule ps c) := d.
 
-Definition admissible (r : rule) :=
-  (forall s, s \in premises r -> provable s) -> provable (conclusion r).
+(*****************)
+(* TD3 Exercises *)
+(*****************)
 
 (* Q1. very easy *)
 Lemma derivable_admissible (r : rule) :
@@ -216,18 +225,13 @@ elim: d => //=.
   - by apply: IHd2.
 Admitted.
 
-Definition reversible r :=
-  (admissible r *
-    (forall p, p ∈ premises r ->
-          admissible (Rule [:: conclusion r] (p))))%type.
 
-
+(* Q2. medium *)
 Definition weakening Γ A B := Rule [:: Γ ⊢ B] (A :: Γ ⊢ B).
 
 Definition gen_weakening Γ Θ A (ΓΘ : subseq Θ Γ) :=
   Rule [:: Θ ⊢ A] (Γ ⊢ A).
 
-(* Q3. medium *)
 Lemma weakening_admissible Γ A B : admissible (weakening Γ A B).
 Proof.
 move=> /= sP; have {sP} := sP _ (mem_head _ _).
@@ -242,15 +246,15 @@ elim=> //=.
 - by move=> {s B}Γ B _; apply: BotE.
 Admitted.
 
-(* Q2. easy (using weakening_admissible) *)
+(* Q3. easy (using weakening_admissible) *)
 Lemma ImplyI_reversible Γ A B : reversible (Rule.ImplyI Γ A B).
 Proof.
 Abort.
 
+(* Q4. difficult *)
 Definition exchange Γ A B Δ C :=
   Rule [:: Γ ++ A :: B :: Δ ⊢ C] (Γ ++ B :: A :: Δ ⊢ C).
 
-(* Q4. difficult *)
 Lemma exchange_admissible Γ A B Δ C :
   admissible (exchange Γ A B Δ C).
 Proof. Abort.
