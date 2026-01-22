@@ -169,3 +169,10 @@ Lemma tnth_onthP [n : nat] [T : Type] (x : T) (t : n.-tuple T) (i : nat) ilt :
 Proof. move=> *; exact: tnth_onth. Qed.
 
 Lemma ordE n (i : 'I_n) (p : i < n) : Ordinal p = i. Proof. exact/val_inj. Qed.
+
+Lemma Some_tnth {n T} (t : n.-tuple T) i : Some (tnth t i) = onth t i.
+Proof. by symmetry; apply/tnth_onth. Qed.
+
+Hint Resolve suffix_refl : core.
+Hint Resolve prefix_refl : core.
+
