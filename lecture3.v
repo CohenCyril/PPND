@@ -36,7 +36,7 @@ HB.instance Definition _ := binOp_countable.
 (* Now we define formulae. *)
 Inductive formula :=
   | Var of nat
-  | Bot 
+  | Bot
   | BinOp of Op.bin & formula & formula.
 
 Definition formula_indDef := [indDef for formula_rect].
@@ -69,7 +69,7 @@ Fixpoint size_formula (A : formula) : nat :=
     | Var _ => 1
     | Bot => 1
     | BinOp op A B => size_formula A + size_formula B
-  end. 
+  end.
 
 Lemma size_formula_gt0 (A : formula) : size_formula A > 0.
 Proof. by elim: A => [n //| // |op A A_gt0 B B_gt0] /=; lia. Qed.
@@ -81,7 +81,7 @@ Hint Resolve size_formula_gt0 : core.
 
 Record sequent := Sequent {
   hypotheses : list formula;
-  thesis : formula; 
+  thesis : formula;
 }.
 Bind Scope NJ_scope with sequent.
 
@@ -106,7 +106,7 @@ Arguments formula_to_sequent /.
 (**************)
 
 Inductive derivation (prem : list sequent) : sequent -> Type :=
-| Prem s : s \in prem -> derivation s 
+| Prem s : s \in prem -> derivation s
 | Ax (Γ : list formula) (A : formula) (i : 'I_(size Γ)) :
    tnth (in_tuple Γ) i = A -> derivation (Γ ⊢ A)
 | BotE Γ A : derivation (Γ ⊢ ⊥) -> derivation (Γ ⊢ A)
@@ -212,25 +212,38 @@ elim: d => //=.
 - move=> Γ A B d0 IHd0 Ps.
   apply: ImplyI.
   by apply: IHd0.
-- admit.
-- admit.
-- admit.
-- admit.
-- admit.
-- admit.
-- move=> Γ A B C d0 IHd0 d1 IHd1 d2 IHd2 Ps.
-  apply: OrE.
-  - by apply: IHd0.
-  - by apply: IHd1.
-  - by apply: IHd2.
-Admitted.
-
+- move=> Γ A B _ ab _ b ps.
+  by apply: (ImplyE A); tauto.
+- by move=> Γ A B _ a _ b ?; apply: AndI; tauto.
+- by move=> Γ A B _ ab ?; apply: (AndE1 B); tauto.
+- by move=> Γ A B _ ab ?; apply: (AndE2 A); tauto.
+- by move=> Γ A B _ a ?; apply: (OrI1 B); tauto.
+- by move=> Γ A B _ a ?; apply: (OrI2 A); tauto.
+- by move=> Γ A B C _ ab _ ac _ bc ?; apply: (OrE A B); tauto.
+Qed.
 
 (* Q2. medium *)
 Definition weakening Γ A B := Rule [:: Γ ⊢ B] (A :: Γ ⊢ B).
 
-Definition gen_weakening Γ Θ A (ΓΘ : subseq Θ Γ) :=
+(* Definition gen_weakening Γ Θ A (ΓΘ : subseq Θ Γ) := *)
+(*   Rule [:: Θ ⊢ A] (Γ ⊢ A). *)
+
+(* Lemma gen_weakening_admissible Γ Θ A ΓΘ : *)
+(*   admissible (@gen_weakening Γ Θ A ΓΘ). *)
+(* Proof. *)
+(* Admitted. *)
+Definition gen_weakening Γ Θ A :=
   Rule [:: Θ ⊢ A] (Γ ⊢ A).
+
+Lemma gen_weakening_admissible Γ Θ A : subseq Θ Γ ->
+  admissible (@gen_weakening Γ Θ A).
+Proof.
+Admitted.
+(* Admitted. *)
+
+(* Search (_ \in _ :: _). *)
+(* Search (_ ++ _). *)
+(* Locate "++". *)
 
 Lemma weakening_admissible Γ A B : admissible (weakening Γ A B).
 Proof.
@@ -246,9 +259,32 @@ elim=> //=.
 - by move=> {s B}Γ B _; apply: BotE.
 Admitted.
 
+Locate "==".
+(* Notation "x == y :> T" := (eq_op (x : T) (y : T)) (* T in scope _type_scope *) : bool_scope (default interpretation) *)
+Locate "=".
+(* Notation "x = y :> A" := (eq x y) (* A in scope _type_scope *) : type_scope  *)
+
+Check @eq_op : forall (T : eqType), T -> T -> bool.
+Check @eq : forall T, T -> T -> Prop.
+About eqP.
+Search eq_op eq.
+
 (* Q3. easy (using weakening_admissible) *)
 Lemma ImplyI_reversible Γ A B : reversible (Rule.ImplyI Γ A B).
 Proof.
+move=> /= p.
+rewrite mem_seq1 => /eqP -> /= ps /=.
+apply: (ImplyE A); last first.
+  apply: (AxP 0).
+  (* rewrite tnth_onth. *)
+  by apply/tnth_onth.
+simpl in ps.
+have prΓAB : provable (Γ ⊢ A ⇒ B).
+  by apply: ps; rewrite mem_head.
+
+apply: weakening_admissible => /=.
+simpl in ps.
+exact: ps.
 Abort.
 
 (* Q4. difficult *)
@@ -262,4 +298,4 @@ Proof. Abort.
 (* Q5. extremely difficult *)
 Lemma weakening_nonderivable :
   (forall Γ A B, derivable (weakening Γ A B)) -> provable ⊥.
-Proof. Abort.  
+Proof. Abort.
