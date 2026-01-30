@@ -112,6 +112,68 @@ Admitted.
 Lemma CHVK s : forall d : derivation [::] s, CH (CHV d) = d.
 Admitted.
 
+Inductive Ctx :=
+  Hole | CLam of Ty & Ctx | CAppl of Ctx & Tm | CAppr of Tm & Ctx.
+
+Definition Tm_indDef := [indDef for Tm_rect].
+Canonical Tm_indType := IndType Tm Tm_indDef.
+
+Definition Tm_hasDecEq := [derive hasDecEq for Tm].
+#[export] HB.instance Definition _ := Tm_hasDecEq.
+Definition Tm_hasChoice := [derive hasChoice for Tm].
+#[export] HB.instance Definition _ := Tm_hasChoice.
+Definition Tm_isCountable := [derive isCountable for Tm].
+#[export] HB.instance Definition _ := Tm_isCountable.
+
+Definition Ctx_indDef := [indDef for Ctx_rect].
+Canonical Ctx_indType := IndType Ctx Ctx_indDef.
+
+Definition Ctx_hasDecEq := [derive hasDecEq for Ctx].
+#[export] HB.instance Definition _ := Ctx_hasDecEq.
+Definition Ctx_hasChoice := [derive hasChoice for Ctx].
+#[export] HB.instance Definition _ := Ctx_hasChoice.
+Definition Ctx_isCountable := [derive isCountable for Ctx].
+#[export] HB.instance Definition _ := Ctx_isCountable.
+
+Fixpoint lift (t : Tm) k :=
+match t in Tm with
+| Var i => Var (bump k i)
+| Lam A t => Lam A (lift t k.+1)
+| App u v => App (lift u k) (lift v k)
+end.
+
+Definition lift0 (t : Tm) := lift t 0.
+
+Fixpoint substn (t : Tm) (k : nat) (u : Tm) : Tm :=
+match t with
+| Var i => if i == k then u else Var (unbump k i)
+| Lam A t => Lam A (lift0 t)
+| App t v => App (substn t k u) (substn v k u)
+end.
+
+Definition beta : rel Tm := fun t u =>
+  if t is App (Lam A t) v then u == substn t 0 v else false.
+
+Fixpoint substnCtx (C : Ctx) N := match C with
+| Hole => N
+| CLam A C => Lam A (substnCtx C N)
+| CAppl C M => App (substnCtx C N) M
+| CAppr M C => App M (substnCtx C N)
+end.
+
+Definition Ctx_closure (R : relation Tm) M N :=
+  exists C U V, [/\ M = substnCtx C U, N = substnCtx C V & R U V].
+
+Inductive beta_red : Tm -> Tm -> Prop :=
+| BetaStep A M N : beta_red (App (Lam A M) N) (substn M 0 N)
+| BetaLam A M M' : beta_red M M' -> beta_red (Lam A M) (Lam A M')
+| BetaAppl M M' N : beta_red M M' -> beta_red (App M N) (App M' N)
+| BetaAppr M N N' : beta_red N N' -> beta_red (App M N) (App M N').
+
+(* exercice N *)
+Lemma beta_redP M N : beta_red M N <-> Ctx_closure beta M N.
+Admitted.
+
 End UnscopedDB.
 
 Module DB.
