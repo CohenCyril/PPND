@@ -77,7 +77,7 @@ Proof.
 apply: infer_tyP.
 apply/eqP.
 exact: TmofP.
-Qed.
+Defined.
 
 Equations CH_rec Γ A M (Mty : (Γ ⊢ M : A)) : derivation [::] (Γ ⊢ A) :=
   CH_rec (TyVar eqiA) := @Ax [::] Γ _ A _;
@@ -104,8 +104,16 @@ Admitted.
 
 Definition CHV s (d : derivation [::] s) : Tm_ s := mkTmOf (CHV_recP d).
 
-(* Ex 3 *)
+HB.instance Definition _ s := [isSub for @Tm_of_TmOf s].
+
+(* Ex 3 : Too difficult *)
 Lemma CHK s : forall M : Tm_ s, CHV (CH M) = M.
+Proof.
+case: s => Γ A.
+rewrite /CH /CHV /Ty_Tm /=.
+case=> M Mty.
+apply/val_inj => /=.
+elim: infer_tyP => {Γ A M Mty}.
 Admitted.
 
 (* Ex N+1 : Very difficult *)
